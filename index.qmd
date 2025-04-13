@@ -1,0 +1,361 @@
+---
+title: "Exploring the effects of Receptive Fields in CNN"
+subtitle: "Optimizing CNNs through effective receptive fields"
+author: "Kalyani Kotti, Susanta Deka (Advisor: Dr. Cohen)"
+date: '`r Sys.Date()`'
+format:
+  html:
+    code-fold: true
+course: Capstone Projects in Data Science
+bibliography: references_deka.bib # file contains bibtex for references
+#always_allow_html: true # this allows to get PDF with HTML features
+self-contained: true
+jupyter: python3
+execute: 
+  warning: false
+  message: false
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+[Literature Review Log](review.html){target="_blank"}
+
+Slides: [slides.html](slides.html){target="_blank"} ( Go to `slides.qmd` to edit)
+
+
+## Introduction
+
+
+The receptive field of a Convolution Neural Network (CNN) is the specific region in input data that activates the neurons i.e. the features captured by a convolution layer. This region determines the level of feature extraction, or learning from the input which ultimately impacts the quality of the output. Different sizes of receptive fields may be optimal for different tasks. This also means that the effective receptive field for a given task will vary with variation in the input. For example a magnified image vs a large zoomed out scene will yield vastly different features for the same receptive field. In this study, we aim to identify the optimal sizes and combination of convolution filters for effective receptive fields for certain tasks. In other words, we want to experiment different configurations of convolutional filters and network architectures that affect the effective receptive field using different kernel sizes, strides, and depths across different datasets and tasks. With that we hope to identify generalizable principles for designing CNNs with optimal feature extraction capabilities.
+
+Deep convolutional neural networks (CNNs) have revolutionized the field of computer vision, enabling machines to perform tasks such as image classification, object detection, and semantic segmentation with remarkable accuracy. A critical component of CNNs is the concept of the receptive field—the region of the input image that a particular neuron in a network layer "sees" or responds to. Understanding the receptive field is essential for designing effective CNN architectures, as it influences the network's ability to capture spatial hierarchies and contextual information. This capstone project aims to delve into the receptive field dynamics of deep CNNs, particularly in the context of lane detection tasks within autonomous driving simulations.
+
+The receptive field of a neuron in a CNN determines the spatial extent of the input image that affects its output. In essence, it defines the context in which a neuron operates. This concept is pivotal because a neuron with a limited receptive field may miss broader contextual information, leading to suboptimal performance in tasks requiring global understanding. Conversely, an excessively large receptive field might incorporate irrelevant information, diluting the focus on pertinent features.
+
+Several architectural choices influence the receptive field size in CNNs. The kernel size in convolutional layers directly affects the receptive field; larger kernels encompass a broader area of the input image. The depth of the network also plays a significant role; deeper networks naturally have larger receptive fields due to the cumulative effect of successive convolutional operations. Pooling layers contribute by downsampling feature maps, effectively expanding the receptive field.
+
+While the theoretical receptive field provides an upper bound on the spatial extent a neuron can cover, the effective receptive field (ERF) represents the actual area of the input image that significantly influences the neuron's output. Studies have shown that the ERF often forms a Gaussian distribution, with the central region having the most substantial impact and the influence tapering off towards the periphery. This insight underscores the importance of considering the ERF in network design, as it highlights that not all parts of the theoretical receptive field contribute equally to the neuron's activation.
+
+
+
+
+## Literature Review
+
+The history of Convolution Neural Networks (CNN) is a rich one and one that spans multiple decades. CNN architecture is heavily inspired by the biology of the visual cortex, which contains arrangements of simple and complex cells that activate based on specific subregions of the visual field, known as receptive fields [@indoliaConceptualUnderstandingConvolutional2018]. CNNs have made much of the buzz as well as many advancements in deep learning in recent years, particularly in the domain of computer vision and image analysis. Its application can be found in industrial settings like in fault detection, in medical imaging for disease detection through classification [@yamashitaConvolutionalNeuralNetworks2018], or in consumer situations like face detection in digital cameras or object detection in driving systems.  Moreover, researchers Gu et al. point out about the rapid growth of annotated data and the significant improvements in the processing power of graphics processor units (GPUs) which has empowered research on CNNs even further leading to many state-of-the-art models and their results on various tasks. [@guRecentAdvancesConvolutional2018]
+
+There are numerous models and architectures of CNN. A review article by Cong and Zhou goes into details about the 6 typical architectures of CNN. CNNs typically have these five basic layers which are the input layer, the convolution layer, the pooling layer, the Fully Connected (FC) layer (also known as the Dense layer) and the output layer. The paper talks about how AlexNet used ReLu activation function instead of tanh to reduce computation complexity and resolve the vanishing gradient problem. Moreover, the use of Local Response Normalization (LRN) and pooling (down-sampling) were also helpful in improving performance as well as reducing overfitting. There’s also mention of ZfNet or DeconvNet where researchers provided visualizations to understand the internal mechanism of a CNN architecture.
+
+The article then talks about VGG Net where CNNs are split into smaller filters (or kernels) thereby increasing the depth of the network. There’s also mention of GoogLeNet and its use of multiple filters of varying sizes stacked together to extract features of different sizes. The authors mention that Batch Normalization was a major contribution with the introduction of the InceptionV2 model which improved backpropagation and the gradient vanishing problem.
+
+Then there’s the idea of cross-layer connection which is different from prior architectures where connections existed only between adjacent layers. ResNet implemented this cross-layer connection through shortcut connections where the input is transferred across multiple layers and then features are aggregated which improved accuracy. This is an example of widening the network which is opposite to that of deepening the network. Finally, there’s info about the DenseNet which is a CNN architecture with dense connections where each layer is connected to every other layer. A bad side effect of this is that the model relearns the same features repeatedly.
+
+The article then looks into lightweight networks which are targeted towards mobile devices or embedded devices. Lightweight CNNs are smaller CNN architectures obtained after compression and acceleration. MobileNetV3 is a lightweight CNN that decompose the convolution process into pointwise and depthwise convolution for decreasing model size as well as compute burden.
+
+The fifth type of CNN architecture deals with object detection. The article introduces Regional CNN (R-CNN) which achieve object detection through three main ideas which are region proposals, feature extraction and region classification. Inspired by this and based on GoogLeNet, there’s a new detection method called the YOLO model, You Only Look Once which segments an input image into multiple bounding boxes and classifies the regions alongside the bounding boxes to detect objects.
+
+Finally, the last architecture is the Transformer Encoder where the article looks into Vision Transformers (ViT). Because transformers by themselves lack spatial inductive biases which leads to poor optimization, researchers have combined CNNs and ViTs to overcome it. [@congReviewConvolutionalNeural2023]
+
+CNNs are inherently compute heavy because they contain a lot of parameters and structural redundancy with deeper network architectures for feature extraction. Recent advancements in lightweight deep convolutional neural networks (DCNNs) have primarily focused on optimizing network architecture to balance accuracy and computational efficiency. One of the primary strategies for achieving this balance is depthwise separable dilated convolutions, as presented in this Dual Residual and Large Receptive Field Network (DRLN) novel architecture by [@panDualResidualLarge2024]. Dilated convolutions introduce holes or spaces between kernel elements, effectively increasing the receptive field without increasing the number of parameters. ShuffleNet further enhances this approach by incorporating group convolutions and channel shuffling to improve information flow while maintaining efficiency.[@zhangShuffleNetExtremelyEfficient2017]
+
+Other architectural innovations include EfficientNet’s compound scaling method, which uniformly scales depth, width, and resolution to optimize efficiency.[@tanEfficientNetRethinkingModel2020] Furthermore, NAS (Neural Architecture Search)-designed models have demonstrated promising results in automating the design of lightweight networks, with MobileNetV3 [@congReviewConvolutionalNeural2023] integrating NAS techniques to improve upon its predecessors.
+
+Another key direction in lightweight DCNNs is model compression, which reduces the memory footprint and computational burden without significantly sacrificing accuracy. Pruning techniques, such as structured and unstructured pruning, remove redundant parameters by eliminating less important weights or entire channels [@iofinovaHowWellSparse2022]. Quantization, which reduces the precision of model parameters from floating-point to lower-bit representations (e.g., 8-bit integer), is another widely used technique that significantly reduces memory consumption and inference latency [@panDualResidualLarge2024]. Two widely used quantization methods are post-training quantization (PTQ) and quantization-aware-training (QAT) with PTQ being the more popular one since it can restore the performance of the model without requiring the original training pipeline. [@chenReviewLightweightDeep2024]
+
+Knowledge distillation has also gained traction as an effective compression method, wherein a large, well-trained teacher network transfers knowledge to a smaller student network, improving the student's performance while keeping it computationally lightweight [@wangEdgeenhancedFeatureDistillation2022]. Additionally, low-rank decomposition methods decompose weight matrices into smaller, efficient representations, further enhancing compactness.
+
+The receptive field plays a critical role in the performance of CNNs, as it determines how much context a neuron captures. Recent studies [@luoUnderstandingEffectiveReceptive2017] highlight that the effective receptive field (ERF) is significantly smaller than the theoretical receptive field, limiting the network's ability to integrate global information efficiently. This phenomenon has implications for lightweight CNNs, where reducing the number of parameters can inadvertently shrink the ERF, potentially affecting recognition accuracy.
+
+Several strategies have been proposed to mitigate this issue in lightweight networks. Dilated convolutions, for example, expand the receptive field without increasing parameter count, making them particularly useful for mobile-friendly models. Additionally, skip connections, as seen in ResNet architectures, help maintain feature propagation across layers, addressing the limitations imposed by a reduced ERF.
+
+Benchmarking lightweight CNNs requires comprehensive evaluation across multiple datasets and hardware platforms. Common benchmark datasets such as ImageNet, CIFAR-10, and COCO are widely used to assess classification and detection performance [@panDualResidualLarge2024],[@wangPooDLePooledDense2024]. However, real-world deployment also necessitates testing on edge devices to measure latency, power consumption, and memory efficiency.
+
+Despite significant advancements, several challenges remain in designing lightweight CNNs. One area of interest is the development of hardware-aware NAS techniques that tailor models to specific device constraints. Additionally, improving the trade-off between accuracy and efficiency through novel loss functions and training paradigms remains an open research problem. Finally, better understanding and optimization of ERF in lightweight models can further enhance their effectiveness in real-world applications.
+
+By addressing these challenges, future research can drive further improvements in lightweight CNNs, making them even more suitable for deployment in resource-constrained environments such as mobile devices, autonomous systems, and IoT applications.
+
+
+## Dataset
+
+For this project we have decided to use a dataset based on the Carla Driving Simulator, an open-source simulator designed for autonomous driving research. Carla provides a realistic and diverse set of driving scenarios that are ideal for training models for tasks like lane detection, object detection, and semantic segmentation.
+
+* Dataset Source: Carla Driving Simulator.
+* Type of Task: Semantic Segmentation for lane boundary detection.
+* Image Size: The images in the dataset have a high resolution of 1024x512 pixels, allowing the model to capture intricate details of lane markings.
+* Annotation Format: Each image has a corresponding binary mask, where lane boundaries are marked with 1 (lane pixels) and the background is marked with 0 (non-lane pixels).
+* Driving Scenarios: The dataset contains various scenes, including urban roads, suburban areas, and highways, with different weather conditions (sunny, rainy) and times of the day (morning, evening, night). This diversity in conditions helps simulate real-world driving challenges.
+* Image Channels: The images are in RGB format, meaning they have 3 channels (Red, Green, Blue), and the corresponding label masks are grayscale images with pixel values 0,1 and 2.
+* Total samples - 6408 pngs files = 3075 train + 3075 train_label + 129 val + 129 val_label images 
+
+
+## Dataset Visualization
+
+The dataset contains over 6000 images of road scenes and label images for training and validation. 
+
+Example of one of the images.
+
+![](https://imgur.com/sAVhGgC)
+
+The label images are grayscale pngs with 3 pixel values, which are 0,1,2.
+
+![](https://imgur.com/2A3k7z3)
+
+The following image is the label image visualized for human eyes with visually distinct color values. Here we can see the lane lines which serve as the label for training.
+
+![](https://imgur.com/LAKKKlk)
+
+
+### Exploring summary statistics of the dataset images
+
+Since the images contain all three RGB channels, we perform some statistics to understand the distribution of each individual RGB channel as well as the RGB colors themselves.
+
+
+```{python}
+import numpy as np
+from PIL import Image
+from skimage import color as skcolor
+from collections import Counter
+import matplotlib.pyplot as plt
+
+def analyze_image(image_path):
+    img = Image.open(image_path)
+    img_array = np.array(img)
+
+    rgb_means = np.mean(img_array, axis=(0, 1))
+    rgb_medians = np.median(img_array, axis=(0, 1))
+    rgb_mins = np.min(img_array, axis=(0, 1))
+    rgb_maxs = np.max(img_array, axis=(0, 1))
+    rgb_stds = np.std(img_array, axis=(0, 1))
+
+    # Color distribution
+    rgb_hist = [np.histogram(img_array[:,:,i], bins=256, range=(0,256))[0] for i in range(3)]
+
+    # Dominant colors (top 5)
+    pixels = img_array.reshape(-1, 3)
+    counts = Counter(map(tuple, pixels))
+    dominant_colors = counts.most_common(5)
+
+    # Luminosity - the array of number is based on how the human eye perceives brightness in the RGB channels
+    luminosity = np.dot(rgb_means, [0.299, 0.587, 0.114])
+
+    print(f"RGB Means: R={rgb_means[0]:.2f}, G={rgb_means[1]:.2f}, B={rgb_means[2]:.2f}")
+    print(f"RGB Medians: R={rgb_medians[0]:.2f}, G={rgb_medians[1]:.2f}, B={rgb_medians[2]:.2f}")
+    print(f"RGB Mins: R={rgb_mins[0]}, G={rgb_mins[1]}, B={rgb_mins[2]}")
+    print(f"RGB Maxs: R={rgb_maxs[0]}, G={rgb_maxs[1]}, B={rgb_maxs[2]}")
+    print(f"RGB Standard Deviations: R={rgb_stds[0]:.2f}, G={rgb_stds[1]:.2f}, B={rgb_stds[2]:.2f}")
+    print(f"Luminosity: {luminosity:.2f}")
+
+
+    print("\n\nTop 5 Dominant Colors (RGB, count):")
+    for rgb_vals, count in dominant_colors:
+        print(f"  {rgb_vals[0]:4d} {rgb_vals[1]:4d} {rgb_vals[2]:4d} : {count}")
+
+    # Plot histograms
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    colors = ['red', 'green', 'blue']
+    for i, (hist, color) in enumerate(zip(rgb_hist, colors)):
+        axs[i].bar(range(256), hist, color=color, alpha=0.7)
+        axs[i].set_title(f'{color.capitalize()} Channel Histogram')
+    plt.tight_layout()
+    plt.show()
+
+# Usage
+analyze_image("C:/Users/deka_/Desktop/Testing/Datasets/carla-lane/train/Town04_Clear_Noon_09_09_2020_14_57_22_frame_569.png")
+```
+
+Summary statistics of a sample of the training dataset. In this case we're taking 10% of the dataset as our sample.
+
+
+```{python}
+import os
+
+base_dir = "C:/Users/deka_/Desktop/Testing/Datasets/carla-lane/train"
+all_files = os.listdir(base_dir)
+
+all_R = np.empty((0,), dtype=np.uint8)
+all_G = np.empty((0,), dtype=np.uint8)
+all_B = np.empty((0,), dtype=np.uint8)
+all_dominants = Counter()
+
+sample_len = int(len(all_files) * .1)
+
+for file in all_files[:sample_len]:
+    img = Image.open(f"{base_dir}/{file}")
+    img_array = np.array(img)
+
+    pixels = img_array.reshape(-1, 3)
+
+    all_R = np.concatenate((all_R, pixels[:,0]))
+    all_G = np.concatenate((all_G, pixels[:,1]))
+    all_B = np.concatenate((all_B, pixels[:,2]))
+
+    counts = Counter(map(tuple, pixels))
+    dominant_colors = counts.most_common(5)
+    dominant_dict = dict(dominant_colors)
+    all_dominants.update(dominant_dict)
+```
+
+
+> Summary statistics of the RGB channels of the sample.
+
+```{python}
+print(f"RGB Means:    R = {round(np.mean(all_R)):>3}, G = {round(np.mean(all_G)):>3}, B = {round(np.mean(all_B)):>3}")
+print(f"RGB Medians:  R = {round(np.median(all_R)):>3}, G = {round(np.median(all_G)):>3}, B = {round(np.median(all_B)):>3}")
+print(f"RGB Mins:     R = {round(np.min(all_R)):>3}, G = {round(np.min(all_G)):>3}, B = {round(np.min(all_B)):>3}")
+print(f"RGB Maxs:     R = {round(np.max(all_R)):>3}, G = {round(np.max(all_G)):>3}, B = {round(np.max(all_B)):>3}")
+print(f"RGB Std Devs: R = {round(np.std(all_R)):>3}, G = {round(np.std(all_G)):>3}, B = {round(np.std(all_B)):>3}")
+```
+
+
+> The top 5 RGB colors in the sample and their count.
+
+```{python}
+for rgb_vals, count in all_dominants.most_common(5):
+    print(f"  {rgb_vals[0]:4d} {rgb_vals[1]:4d} {rgb_vals[2]:4d} : {count}")
+```
+
+
+```{python}
+
+rgb_hist = [
+    np.histogram(all_R, bins=256, range=(0,256))[0],
+    np.histogram(all_G, bins=256, range=(0,256))[0],
+    np.histogram(all_B, bins=256, range=(0,256))[0]
+]
+
+fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+colors = ['red', 'green', 'blue']
+for i, (hist, color) in enumerate(zip(rgb_hist, colors)):
+    axs[i].bar(range(256), hist, color=color, alpha=0.7)
+    axs[i].set_title(f'{color.capitalize()} Channel Histogram')
+    axs[i].set_xlim(0, 255)  # Set consistent x-axis limits
+    axs[i].set_xlabel('Pixel Value')
+    axs[i].set_ylabel('Frequency')
+
+fig.suptitle('RGB Channel Distributions Across Sample Images', fontsize=16)
+plt.tight_layout()
+plt.show()
+```
+
+
+## Methods
+
+The main goal of this project is to evaluate how changes to the receptive field affect the performance of a CNN for lane detection. The following steps outline the experimental setup:
+
+**1. Network Architecture**
+
+We use a CNN-based architecture for semantic segmentation. To manipulate the receptive field, we employ various strategies, such as:
+
+* Kernel Size Variation: The effect of kernel size on receptive field will be evaluated by using different filter sizes (3x3, 5x5, and 7x7). Smaller kernels capture localized features, such as lane markings, while larger kernels help capture broader context, essential for detecting lane structure over long distances.
+* Network Depth: By increasing the depth of the network (i.e., adding more convolutional layers), the receptive field increases. Deeper networks are hypothesized to better capture long-range dependencies, important for lane detection in complex road environments.
+* Dilated Convolutions: Dilated convolutions expand the receptive field without decreasing the spatial resolution of feature maps. This technique helps preserve fine details (e.g., lane boundaries) while increasing the context captured by the network.
+* Pooling Layers: Pooling layers reduce the spatial resolution of feature maps, thus increasing the receptive field. However, excessive pooling can lead to the loss of critical details, especially in small or closely spaced lane markings. We will experiment with various pooling strategies (e.g., max pooling, average pooling) at different network depths.
+* Encoder-Decoder Architecture: The encoder-decoder architecture, commonly used for semantic segmentation tasks, will be implemented. The encoder gradually reduces the image resolution (increasing the receptive field), while the decoder upsamples to restore the original image resolution, preserving finer details needed for precise lane boundary detection.
+
+**2. Data Preprocessing**
+
+Data preprocessing steps include:
+
+* Image Resizing: Images will be resized to a uniform resolution (e.g., 256x256 or 512x512 pixels) to maintain consistency across the dataset.
+* Normalization: Pixel values of the images will be normalized to a range between 0 and 1 to improve convergence during training.
+* Data Augmentation: To increase the robustness of the model, data augmentation techniques like random flipping, rotation, and cropping will be applied to generate diverse training samples, thus helping the model generalize better across different road conditions.
+
+**3. Training Configuration**
+
+For the model training, the following setup will be used:
+Loss Function: The cross-entropy loss function will be used for training. This is a standard loss function for semantic segmentation tasks that penalizes the difference between predicted and ground truth segmentation masks.
+The formula for the cross-entropy loss for binary classification (e.g., predicting whether each pixel belongs to a lane or not) is:
+
+$\text{Loss} = -\left[ y \log(p) + (1 - y) \log(1 - p) \right]$
+
+Where:
+
+* y is the true label (0 or 1) of a given pixel (1 if it's a lane, 0 if it's not).
+* p is the predicted probability that the pixel belongs to class 1 (lane).
+* log is the natural logarithm.
+For multi-class classification (such as when there are more than two classes, like lane types or road segments), the formula generalizes as follows:
+
+$\text{Loss} = -\sum_{c=1}^C Y_c \log(p_c)$
+
+Where:
+* C is the number of classes (e.g., "lane", "road", "background").
+* $Y_c$ is the true label for class ccc (1 if the pixel belongs to class ccc, 0 otherwise).
+* $P_c$ is the predicted probability for class ccc for a given pixel.
+* The sum is taken over all classes.
+* Optimizer: The Adam optimizer will be used with an initial learning rate of 0.001. Learning rate scheduling will be implemented to adjust the learning rate during training, ensuring better convergence.
+The Adam optimizer computes updates using the following steps:
+
+1. Gradient Calculation: Let θt  be the parameters at time step t, and gt be the gradient of the loss function at time step t with respect to the parameters.
+
+2. Compute the Moving Averages:
+
+* The first moment estimate mt is the exponentially weighted moving average of the gradients: $m_t = \beta_1 m_{t-1} + (1 - \beta_1) g_t$
+* The second moment estimate vt is the exponentially weighted moving average of the squared gradients: $v_t = \beta_2 v_{t-1} + (1 - \beta_2) g_t^2$
+* Here, β1 and β2 are hyperparameters that control the decay rates of the moving averages for the first and second moments, respectively. Commonly used values are:
+* $\beta_1=0.9$
+* $\beta_2=0.999$
+
+3. Bias Correction: Since the moving averages are initialized to 0, they are biased toward 0 during the early time steps. To correct this, bias-corrected estimates \(\hat{m}_t\) and \(\hat{v}_t\) are computed as:
+\[
+\hat{m}_t = \frac{m_t}{1 - \beta_1^t}
+\]
+\[
+\hat{v}_t = \frac{v_t}{1 - \beta_2^t}
+\]
+The bias correction terms help to ensure that the moment estimates are unbiased, especially in the early stages of training.
+
+4. Parameter Update: Finally, the parameters are updated using the following rule:
+
+$\theta_{t+1} = \theta_t - \alpha \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}$
+
+Where:
+
+* α is the learning rate (often set to 0.001),
+* $\epsilon$ is a small constant (e.g., $(10^{-7})$) to avoid division by zero.
+
+* Batch Size: A batch size of 16 will be used to balance between computational efficiency and memory constraints.
+* Training and Validation Split: 80% of the dataset will be used for training, and the remaining 20% will be used for validation to monitor performance and prevent overfitting.
+
+**4. Receptive Field Analysis**
+
+The receptive field will be manipulated and analyzed through the following strategies:
+
+* Varying Kernel Sizes: Models will be tested using convolutional kernels of 3x3, 5x5, and 7x7 sizes to investigate the trade-off between local feature capture and global context. The goal is to determine how kernel size affects lane detection accuracy, especially in complex road structures.
+* Increasing Network Depth: The effect of deeper architectures on receptive field size will be explored. Deeper networks will naturally increase the receptive field, which might help in detecting lanes across long distances or in intricate road layouts. We will compare shallow and deep architectures to assess the benefits.
+* Dilated Convolutions: Dilated convolutions will be incorporated into the network to expand the receptive field without down sampling. This allows the model to capture larger areas of the image while retaining spatial resolution for finer lane features.
+* Pooling Layers: Different configurations of pooling layers (e.g., max pooling vs. average pooling) will be evaluated to observe how they influence the receptive field. Pooling is known to increase the receptive field, but too much pooling early in the network might cause the loss of fine lane details.
+
+**5. Hyperparameter Tuning**
+
+The following hyperparameters will be tuned to optimize model performance:
+
+* Learning Rate: Experimentation with different learning rates to find the optimal value for faster convergence.
+* Number of Epochs: A sufficient number of epochs will be used (e.g., 50-100 epochs) to allow the model to converge. Early stopping will be implemented to prevent overfitting.
+* Batch Size: We will test different batch sizes to determine the best trade-off between memory usage and training stability.
+
+**6. Evaluation Metrics**
+
+The following evaluation metrics will be used to assess the performance of the models:
+
+* Pixel Accuracy: Measures the percentage of pixels that are correctly classified as part of the lane or background.
+* Mean Intersection over Union (mIoU): Calculates the overlap between predicted and ground truth lane masks, providing a measure of segmentation accuracy.
+* Dice Similarity Coefficient (DSC): This metric evaluates the similarity between the predicted and true lane masks, which is particularly important for imbalanced datasets.
+
+**7. Model Evaluation**
+
+Once trained, the model will be evaluated on the test set using the aforementioned metrics. The impact of receptive field adjustments (kernel sizes, network depth, dilated convolutions, pooling) on the model's performance will be carefully analyzed, particularly with respect to its ability to detect lane boundaries in different road conditions.
+Expected Outcomes
+We hypothesize that:
+
+* Larger receptive fields (via larger kernels, deeper networks, and dilated convolutions) will improve the model’s ability to detect long-range lane structures, especially on curved or complex roads.
+* Smaller receptive fields may be better for focusing on localized features, such as lane markings, but may struggle with more complex road geometries.
+* The encoder-decoder architecture will improve the segmentation accuracy by allowing the model to retain fine details while capturing broader contextual information.
+The results will guide us in identifying the most effective network configuration for optimal lane detection performance in autonomous driving applications.
+
+
+
+## Analysis and Results
+
+
+# References
+
